@@ -1,14 +1,11 @@
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <signal.h>
 #include <stdio.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+#include <signal.h>
 #include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/epoll.h>
+#include <sys/ioctl.h>
 #include <sys/signalfd.h>
 #include <net/if.h>
-#include <sys/ioctl.h>
 
 #include <array>
 #include <cstring>
@@ -28,16 +25,12 @@ namespace {
 			int fd;
 			std::array<char, 6> lladdr;
 			std::array<char, 3> txid;
-			char *ifname;
 			unsigned int ifindex;
 			worker() : fd(-1), lladdr({0}), txid({0}), ifindex(0) {}
 			~worker() {
 				if(fd >= 0) close(fd);
 			}
-			bool check(char *_ifname) {
-				// save ifname
-				ifname = _ifname;
-
+			bool check(char *ifname) {
 				// get interface index
 				ifindex = if_nametoindex(ifname);
 				if(ifindex == 0) {
@@ -298,34 +291,37 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* epoll create */
-	int alive = 1;
 	struct epoll_event evs[NEVENTS];
 
-	while(alive)
-	{
-		auto nfds = epoll_wait(p->efd, evs, NEVENTS, -1);
+	// 5s timeout
+	auto nfds = epoll_wait(p->efd, evs, NEVENTS, 5000);
 
-		if (nfds < 0) break;
-		if (nfds == 0) continue;
+	if (nfds < 0) {
+		std::cerr << "Error: epoll_wait() failed." << std::endl;
+		return 7;
+	}
+	
+	if (nfds == 0) {
+		std::cerr << "Error: epoll_wait() timeout." << std::endl;
+		return 8;
+	}
 
-		for (int i = 0; i < nfds; i++) {
-			int fd = evs[i].data.fd;
-			if (fd == w->fd) {
-				/* recv */
-				if(!w->recv_packet()) {
-					std::cerr << "Error: recv_packet() failed." << std::endl;
-				}
-				alive = 0;
-			}
-			else if(fd == p->sfd) {
-				struct signalfd_siginfo info = {0};
-				read(p->sfd, &info, sizeof(info));
-				std::cerr << std::endl << "Info: catch signal." << std::endl;
-				alive = 0;
-				break;
+	for (int i = 0; i < nfds; i++) {
+		int fd = evs[i].data.fd;
+		if (fd == w->fd) {
+			if(!w->recv_packet()) {
+				std::cerr << "Error: recv_packet() failed." << std::endl;
+				return 9;
 			}
 		}
+		else if(fd == p->sfd) {
+			struct signalfd_siginfo info = {0};
+			read(p->sfd, &info, sizeof(info));
+			std::cerr << std::endl << "Info: catch signal." << std::endl;
+			return 10;
+		}
 	}
+
 	return 0;
 }
 
