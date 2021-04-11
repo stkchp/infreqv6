@@ -25,6 +25,15 @@ example output:
 	- gcc(5.1以降)
 	- make
 
+
+### tested environment
+
+```.text
+Gentoo Linux
+    - gcc 9.3.0
+    - make 4.3
+```
+
 ## install
 
 ```.text
