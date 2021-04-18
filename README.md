@@ -12,6 +12,12 @@ infreqv6 <ifname>
     <ifname> ... send dhcpv6 packet from this interface
 ```
 
+require to bind udp port lower than 1024, you need to execute this with root prev, or set cap for bind port.
+
+```.text
+sudo setcap cap_net_bind_service=ep infreqv6
+```
+
 example output:
 
 ```.text
