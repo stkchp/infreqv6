@@ -11,7 +11,6 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
-#include <memory>
 #include <random>
 
 constexpr int NEVENTS = 16;
@@ -264,28 +263,28 @@ int main(int argc, char *argv[]) {
 
 	char *ifname = argv[1];
 
-	std::unique_ptr<worker> w(new worker());
-	std::unique_ptr<poller> p(new poller());
+	worker w;
+	poller p;
 
-	if(!w->check(ifname)) {
+	if(!w.check(ifname)) {
 		std::cerr << "Error: check() failed." << std::endl;
 		return 2;
 	}
-	if(!w->create()) {
+	if(!w.create()) {
 		std::cerr << "Error: create() failed." << std::endl;
 		return 3;
 	}
-	if(!p->setup()) {
+	if(!p.setup()) {
 		std::cerr << "Error: setup() failed." << std::endl;
 		return 4;
 	}
-	if(!p->setfd(w->fd)) {
+	if(!p.setfd(w.fd)) {
 		std::cerr << "Error: setfd() failed." << std::endl;
 		return 5;
 	}
 
 	// send packet
-	if(!w->send_packet()) {
+	if(!w.send_packet()) {
 		std::cerr << "Error: send_packet() failed." << std::endl;
 		return 6;
 	}
@@ -294,7 +293,7 @@ int main(int argc, char *argv[]) {
 	struct epoll_event evs[NEVENTS];
 
 	// 5s timeout
-	auto nfds = epoll_wait(p->efd, evs, NEVENTS, 5000);
+	auto nfds = epoll_wait(p.efd, evs, NEVENTS, 5000);
 
 	if (nfds < 0) {
 		std::cerr << "Error: epoll_wait() failed." << std::endl;
@@ -308,15 +307,15 @@ int main(int argc, char *argv[]) {
 
 	for (int i = 0; i < nfds; i++) {
 		int fd = evs[i].data.fd;
-		if (fd == w->fd) {
-			if(!w->recv_packet()) {
+		if (fd == w.fd) {
+			if(!w.recv_packet()) {
 				std::cerr << "Error: recv_packet() failed." << std::endl;
 				return 9;
 			}
 		}
-		else if(fd == p->sfd) {
+		else if(fd == p.sfd) {
 			struct signalfd_siginfo info = {0};
-			read(p->sfd, &info, sizeof(info));
+			read(p.sfd, &info, sizeof(info));
 			std::cerr << std::endl << "Info: catch signal." << std::endl;
 			return 10;
 		}
