@@ -186,6 +186,10 @@ namespace {
 					uint16_t op = ((uint16_t)buf.at(i) << 8) | (uint16_t) buf.at(i + 1);
 					uint16_t len = ((uint16_t)buf.at(i + 2) << 8) | (uint16_t) buf.at(i + 3);
 					i += 4;
+					if(i + len > buf.size()) {
+						std::cerr << "Error: size of option exceeds packet size." << std::endl;
+						return false;
+					}
 					std::vector<char> data;
 					data.insert(data.end(), buf.begin() + i, buf.begin() + i + len);
 					check_option_data(op, len, data);
